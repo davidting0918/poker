@@ -40,14 +40,14 @@ class Decks:
         """Shuffle the deck"""
         random.shuffle(self.cards)
     
-    def deal(self) -> Card:
+    def deal(self, num: int=1) -> list[Card]:
         """Deal one card"""
         if not self.cards:
             # If deck is empty, automatically reshuffle
             self.reset()
             self.shuffle()
             
-        return self.cards.pop()
+        return [self.cards.pop() for _ in range(num)]
     
     def __len__(self):
         """Return number of remaining cards in deck"""

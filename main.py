@@ -1,12 +1,11 @@
-
-from poker.blackjack import Player, BlackjackGame
+from poker.blackjack import BlackjackGame
 
 def init_players():
     """Initialize players."""
     players = [
-        Player("P1", 1000),
-        Player("P2", 1000),
-        Player("P3", 1000)
+        {"name": "P1", "balance": 1000},
+        {"name": "P2", "balance": 1000},
+        {"name": "P3", "balance": 1000}
     ]
     return players
 
@@ -26,8 +25,11 @@ def main():
         # Betting phase
         print("\n=== Betting Phase ===")
 
-        for player in game.active_players:
+        # Create bets dictionary using player IDs
+        bets = {}
+        for player_id, player in game.active_players.items():
             player.place_bet_by_percent(0.1)
+            bets[player_id] = player.bet
         
         # Start the round
         game.init_game()
@@ -36,21 +38,41 @@ def main():
         state = game.get_game_state(hide_dealer_num=0 if game.dealer.has_blackjack() else 1)
         print(state)
 
-        for player in game.active_players:
-            while True:
+        # Process each player's turn
+        for player_id, player in game.active_players.items():
+            done = False
+            while not done:
                 action = input(
                     f"{player.name}, it's your turn. What do you want to do?\n"
+                    f"Hand: {player.get_hand_string()}\n"
+                    f"Points: {player.get_hand_value()}\n"
                     f"1. Hit\n"
                     f"2. Stand\n"
                 )
 
                 if action == "1":
-                    pass
+                    card = game.player_hit(id=player_id)
+                    print(f"{player.name} drew {card}")
+
+                    # Check if player busted after hitting
+                    if player.is_busted():
+                        print(f"{player.name} busted with {player.get_hand_value()}!")
+                        done = True
                 elif action == "2":
-                    break
-                
+                    done = True
+            continue
         
-        continue
+        # Dealer's turn would be implemented here
+        game.dealer_turn()
+        state = game.get_game_state(hide_dealer_num=0)
+        print(state)
+        # Settle the round
+        game.settle_pnl()
+        
+        # Ask to continue
+        play_again = input("Play another round? (y/n): ")
+        if play_again.lower() != 'y':
+            break
     
     print("\nThanks for playing Blackjack!")
 

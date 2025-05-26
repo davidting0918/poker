@@ -1,9 +1,10 @@
 from .deck import Decks
 from .card import Card
-
+import uuid
 class Player:
 
     def __init__(self, name: str, balance: int = 1000):
+        self.id = str(uuid.uuid4())
         self.name = name
         self.balance = balance
         self.hand: list[Card] = []
@@ -28,9 +29,9 @@ class Player:
         self.balance -= self.bet
         return True
     
-    def add_card(self, card: Card) -> None:
+    def add_cards(self, cards: list[Card]) -> None:
         """Add a card to player's hand."""
-        self.hand.append(card)
+        self.hand.extend(cards)
     
     def get_hand_value(self) -> int:
         """Calculate the value of the hand in Blackjack."""
@@ -99,8 +100,9 @@ class BlackjackGame:
         - Compare each player's hand with the dealer's hand
     """
 
-    def __init__(self, players: list[Player], decks_num: int = 1, min_bet: int = 100, max_bet: int = 1000):
-        self.players = players
+    def __init__(self, players: list[dict], decks_num: int = 1, min_bet: int = 100, max_bet: int = 1000):
+        # Convert players list to dictionary with player.id as key
+        self.players = self._init_players(players)
         self.dealer = Player("Dealer", 0)
         self.deck = Decks(decks_num, joker=False)
         self.deck.shuffle()
@@ -110,23 +112,28 @@ class BlackjackGame:
 
         self.active_players = self.get_active_players()
 
-    def get_active_players(self) -> list[Player]:
-        """Get list of players that have enough balance to play."""
+    def _init_players(self, players: list[dict]) -> dict[str, Player]:
+        info = {}
+        for player in players:
+            player = Player(player["name"], player["balance"])
+            info[player.id] = player
+        return info
 
-        return [player for player in self.players if player.balance >= self.min_bet]
+    def get_active_players(self) -> dict[str, Player]:
+        """Get dictionary of players that have enough balance to play."""
+        return {player_id: player for player_id, player in self.players.items() 
+                if player.balance >= self.min_bet}
 
     def init_game(self):
         """
         1. Give each player 2 cards
         2. Give dealer 2 cards
         """
-        for player in self.active_players:
-            player.add_card(self.deck.deal())
-            player.add_card(self.deck.deal())
-        self.dealer.add_card(self.deck.deal())
-        self.dealer.add_card(self.deck.deal())
+        for player in self.active_players.values():
+            player.add_cards(self.deck.deal(2))
+        self.dealer.add_cards(self.deck.deal(2))
         return
-    
+
     def set_bets(self, bets: dict):
         for player in self.active_players:
             player.bet = bets[player.name]
@@ -143,7 +150,7 @@ class BlackjackGame:
         state += "\n"
         
         # Show each player's info
-        for player in self.active_players:
+        for player in self.active_players.values():
             state += f"{player.name}'s cards: {player.get_hand_string()}\n"
             state += f"Points: {player.get_hand_value()}\n"
             state += f"Balance: ${player.balance}\n"
@@ -158,10 +165,14 @@ class BlackjackGame:
         Based on the hand of each player to settle their pnl.
         """
 
-        for player in self.active_players:
+        for player in self.active_players.values():
             if player.is_busted():
                 player.balance -= player.bet
+            elif self.dealer.is_busted():
+                player.balance += 2 * player.bet
             elif player.get_hand_value() > self.dealer.get_hand_value():
+                player.balance += 2 * player.bet
+            elif player.get_hand_value() == self.dealer.get_hand_value():
                 player.balance += player.bet
             else:
                 player.balance -= player.bet
@@ -169,8 +180,19 @@ class BlackjackGame:
             player.clear_hand()
         self.dealer.clear_hand()
         self.active_players = self.get_active_players()
+        return True
+    
+    def player_hit(self, id: str) -> Card:
+        """Give a card to the player with the given id."""
+        if id in self.active_players:
+            player = self.active_players[id]
+            card = self.deck.deal()
+            player.add_cards(card)
+            return card
+        
+    def dealer_turn(self):
+        """Dealer will draw card if the value of the hand is less than 17"""
+        while self.dealer.get_hand_value() < 17:
+            card = self.deck.deal()
+            self.dealer.add_cards(card)
         return
-
-    
-
-    
