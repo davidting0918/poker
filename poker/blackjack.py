@@ -100,23 +100,26 @@ class BlackjackGame:
         - Compare each player's hand with the dealer's hand
     """
 
-    def __init__(self, players: list[dict], decks_num: int = 1, min_bet: int = 100, max_bet: int = 1000):
+    card_dealt_log = {"dealer": [], "players": {}}
+
+    def __init__(self, players: list[dict], decks_num: int = 1, min_bet: int = 100, max_bet: int = 1000, reset_threshold: float = 0.2):
         # Convert players list to dictionary with player.id as key
         self.players = self._init_players(players)
         self.dealer = Player("Dealer", 0)
         self.deck = Decks(decks_num, joker=False)
-        self.deck.shuffle()
         self.game_state = "betting" # betting, player_turn, dealer_turn, settling
         self.min_bet = min_bet
         self.max_bet = max_bet
-
+        self.reset_threshold = reset_threshold
         self.active_players = self.get_active_players()
+        self.round = 0
 
     def _init_players(self, players: list[dict]) -> dict[str, Player]:
         info = {}
         for player in players:
             player = Player(player["name"], player["balance"])
             info[player.id] = player
+            self.card_dealt_log["players"][player.id] = []
         return info
 
     def get_active_players(self) -> dict[str, Player]:
@@ -124,14 +127,24 @@ class BlackjackGame:
         return {player_id: player for player_id, player in self.players.items() 
                 if player.balance >= self.min_bet}
 
-    def init_game(self):
+    def init_round(self):
         """
         1. Give each player 2 cards
         2. Give dealer 2 cards
         """
+        self.round += 1
+        
+        if self.deck.get_left_ratio() < self.reset_threshold:
+            self.deck.reset()
+
         for player in self.active_players.values():
-            player.add_cards(self.deck.deal(2))
-        self.dealer.add_cards(self.deck.deal(2))
+            cards = self.deck.deal(2)
+            player.add_cards(cards)
+            self.card_dealt_log["players"][player.id] = cards
+
+        cards = self.deck.deal(2)
+        self.dealer.add_cards(cards)
+        self.card_dealt_log["dealer"] = cards
         return
 
     def set_bets(self, bets: dict):
@@ -174,8 +187,6 @@ class BlackjackGame:
                 player.balance += 2 * player.bet
             elif player.get_hand_value() == self.dealer.get_hand_value():
                 player.balance += player.bet
-            else:
-                player.balance -= player.bet
         
             player.clear_hand()
         self.dealer.clear_hand()
@@ -188,6 +199,7 @@ class BlackjackGame:
             player = self.active_players[id]
             card = self.deck.deal()
             player.add_cards(card)
+            self.card_dealt_log["players"][id].extend(card)
             return card
         
     def dealer_turn(self):
@@ -195,4 +207,5 @@ class BlackjackGame:
         while self.dealer.get_hand_value() < 17:
             card = self.deck.deal()
             self.dealer.add_cards(card)
+            self.card_dealt_log["dealer"].extend(card)
         return

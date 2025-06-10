@@ -5,7 +5,6 @@ def init_players():
     players = [
         {"name": "P1", "balance": 1000},
         {"name": "P2", "balance": 1000},
-        {"name": "P3", "balance": 1000}
     ]
     return players
 
@@ -32,7 +31,7 @@ def main():
             bets[player_id] = player.bet
         
         # Start the round
-        game.init_game()
+        game.init_round()
         
         # Check for dealer blackjack
         state = game.get_game_state(hide_dealer_num=0 if game.dealer.has_blackjack() else 1)
@@ -69,9 +68,7 @@ def main():
         # Settle the round
         game.settle_pnl()
         
-        # Ask to continue
-        play_again = input("Play another round? (y/n): ")
-        if play_again.lower() != 'y':
+        if not game.active_players:
             break
     
     print("\nThanks for playing Blackjack!")
